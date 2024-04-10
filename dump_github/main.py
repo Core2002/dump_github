@@ -44,7 +44,7 @@ def main():
         if args.print == True:
             print(repo["clone_url"])
         elif args.download_zip == True:
-            download_zip(user_name, repo["name"])
+            download_zip(args.username, repo["name"])
         else:
             clone_repo(repo)
 
