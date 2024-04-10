@@ -1,0 +1,5 @@
+build/
+dist/
+dump_github.egg-info/
+venv/
+__pycache__/
