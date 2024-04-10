@@ -8,7 +8,7 @@ setup(
     version="0.1.0",
     author="core2002",
     author_email="core2002@aliyun.com",
-    description="A small example package",
+    description="This tool can be used to back up users' GitHub repositories in case they need them later.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/core2002/dump_github",
