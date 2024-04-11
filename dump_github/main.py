@@ -31,10 +31,10 @@ def clone_repo(repo):
     os.system("git clone {}".format(url))
 
 
-def download_zip(user_name, reop_name):
-    url = f"https://github.com/{user_name}/{reop_name}/archive/refs/heads/main.zip"
-    print("Downloading repo zip: {}".format(reop_name))
-    os.system("wget {} -O ./{}_{}.zip".format(url, user_name, reop_name))
+def download_zip(user_name, reop):
+    url = f"https://github.com/{user_name}/{reop['name']}/archive/refs/heads/{reop['default_branch']}.zip"
+    print("Downloading repo zip: {}".format(reop["name"]))
+    os.system("wget {} -O ./{}_{}.zip".format(url, user_name, reop["name"]))
 
 
 def main():
@@ -44,7 +44,7 @@ def main():
         if args.print == True:
             print(repo["clone_url"])
         elif args.download_zip == True:
-            download_zip(args.username, repo["name"])
+            download_zip(args.username, repo)
         else:
             clone_repo(repo)
 
