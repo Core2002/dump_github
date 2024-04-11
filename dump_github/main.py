@@ -5,7 +5,7 @@ from .lib import *
 # Config_MaxSize = 1_000
 
 parser = argparse.ArgumentParser(
-    prog="dump_github",
+    prog="dump-github",
     description="Backup users github repo.",
     epilog="https://github.com/Core2002/dump_github",
 )

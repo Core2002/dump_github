@@ -4,7 +4,7 @@ Github Dumper is a Python program designed to search for users' GitHub repositor
 
 **Usage:**
 ```
-usage: dump_github [-h] [-d] [-p] [-t TOKEN] username
+usage: dump-github [-h] [-d] [-p] [-t TOKEN] username
 
 Backup users github repo.
 
