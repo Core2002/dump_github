@@ -2,8 +2,6 @@ import argparse
 import os
 from .lib import *
 
-# Config_MaxSize = 1_000
-
 parser = argparse.ArgumentParser(
     prog="dump-github",
     description="Backup users github repo.",
@@ -15,7 +13,13 @@ parser.add_argument(
     "-d", "--download_zip", action="store_true", help="only download zip file"
 )
 parser.add_argument("-p", "--print", action="store_true", help="only print urls")
-parser.add_argument("-t", "--token", action="store", default="", help="github token")
+parser.add_argument("--token", action="store", default="", help="github token")
+parser.add_argument(
+    "--limit_size",
+    type=int,
+    default=100,
+    help="limit size(MB) of download zip file, if 0 then no limit(default:100).",
+)
 
 args = parser.parse_args()
 
@@ -24,17 +28,20 @@ def clone_repo(repo):
     name = repo["name"]
     url = repo["clone_url"]
     size = repo["size"]
-    # if int(size) > Config_MaxSize:
-    #     print(f"Keep repo [{name}], Becues size is too Big ({int(size)}).")
-    #     return
     print("Clone repo: {}".format(name))
     os.system("git clone {}".format(url))
 
 
 def download_zip(user_name, reop):
     url = f"https://github.com/{user_name}/{reop['name']}/archive/refs/heads/{reop['default_branch']}.zip"
-    print("Downloading repo zip: {}".format(reop["name"]))
-    os.system("wget {} -O ./{}_{}.zip".format(url, user_name, reop["name"]))
+    max_size = args.limit_size * 1000 * 1000
+    cmd = (
+        "curl --retry 3 --retry-delay 3 -L --max-filesize {} {} -o ./{}_{}.zip".format(
+            max_size, url, user_name, reop["name"]
+        )
+    )
+    print(f"Download {reop['name']} : {url}")
+    os.system(cmd)
 
 
 def main():

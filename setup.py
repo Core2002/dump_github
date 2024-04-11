@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="dump_github",
-    version="0.1.4",
+    version="0.1.5",
     author="core2002",
     author_email="core2002@aliyun.com",
     description="This tool can be used to back up users' GitHub repositories in case they need them later.",

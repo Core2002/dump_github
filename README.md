@@ -4,7 +4,7 @@ Github Dumper is a Python program designed to search for users' GitHub repositor
 
 **Usage:**
 ```
-usage: dump-github [-h] [-d] [-p] [-t TOKEN] username
+usage: dump-github [-h] [-d] [-p] [--token TOKEN] [--limit_size LIMIT_SIZE] username
 
 Backup users github repo.
 
@@ -15,8 +15,9 @@ options:
   -h, --help            show this help message and exit
   -d, --download_zip    only download zip file
   -p, --print           only print urls
-  -t TOKEN, --token TOKEN
-                        github token
+  --token TOKEN         github token
+  --limit_size LIMIT_SIZE
+                        limit size(MB) of download zip file, if 0 then no limit(default:100).
 
 https://github.com/Core2002/dump_github
 ```
