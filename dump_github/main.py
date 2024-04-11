@@ -35,13 +35,15 @@ def clone_repo(repo):
 def download_zip(user_name, reop):
     url = f"https://github.com/{user_name}/{reop['name']}/archive/refs/heads/{reop['default_branch']}.zip"
     max_size = args.limit_size * 1000 * 1000
-    cmd = (
-        "curl --retry 3 --retry-delay 3 -L --max-filesize {} {} -o ./{}_{}.zip".format(
-            max_size, url, user_name, reop["name"]
-        )
+    file_name = f"./{user_name}_{reop['name']}.zip"
+    cmd = "curl -L --connect-timeout 5 --retry 3 --retry-delay 3 --max-filesize {} {} -o {}".format(
+        max_size, url, file_name
     )
     print(f"Download {reop['name']} : {url}")
     os.system(cmd)
+    if os.path.exists(file_name) and max_size < os.stat(file_name).st_size:
+        os.remove(file_name)
+        print(f"Removed {file_name} because it exceeds the limit size.")
 
 
 def main():
