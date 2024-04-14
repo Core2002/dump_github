@@ -2,6 +2,11 @@
 
 Github Dumper is a Python program designed to search for users' GitHub repositories and download the repositories. This tool can be used to back up users' GitHub repositories in case they need them later.
 
+**Install:**
+```
+pip install -U dump-github
+```
+
 **Usage:**
 ```
 usage: dump-github [-h] [-d] [-p] [--token TOKEN] [--limit_size LIMIT_SIZE] username
