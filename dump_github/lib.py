@@ -14,7 +14,7 @@ def get_page_of_repos(username, page, token=""):
         repos = response.json()
         return repos
     else:
-        raise []
+        return []
 
 
 def serach_user_repos(username, token=""):
