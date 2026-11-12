@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dump-github"
+dynamic = ["version"]
+description = "Back up users' GitHub repositories in case they need them later."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "core2002", email = "core2002@aliyun.com" }]
+keywords = ["github", "backup", "repositories", "cli"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Version Control :: Git",
+    "Topic :: System :: Archiving :: Backup",
+]
+dependencies = ["requests>=2.28"]
+
+[project.optional-dependencies]
+dev = ["build>=1.2", "twine>=5"]
+
+[project.urls]
+Homepage = "https://github.com/Core2002/dump_github"
+Repository = "https://github.com/Core2002/dump_github"
+Issues = "https://github.com/Core2002/dump_github/issues"
+Changelog = "https://github.com/Core2002/dump_github/blob/main/CHANGELOG.md"
+
+[project.scripts]
+dump-github = "dump_github:main"
+
+[tool.setuptools.packages.find]
+include = ["dump_github*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "dump_github._version.__version__" }

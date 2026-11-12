@@ -2,4 +2,6 @@ build/
 dist/
 dump_github.egg-info/
 venv/
+.venv*/
 __pycache__/
+.pytest_cache/
