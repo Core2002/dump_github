@@ -1,9 +1,10 @@
 import argparse
 import os
 import subprocess
+import sys
 
 from ._version import __version__
-from .lib import search_user_repos
+from .lib import GitHubAPIError, search_user_repos
 
 # One-shot credential helper: git asks for credentials, the helper answers with
 # the token from the environment.  The token is therefore never part of the
@@ -67,7 +68,7 @@ def clone_repo(repo, token=""):
 
 
 def download_zip(user_name, reop, token="", limit_size=100):
-    ref = reop.get("default_branch") or "main"
+    ref = reop.get("default_branch")
     # Always archive the repository the API actually listed.  Using the
     # positional username here would point at the wrong owner whenever the
     # repo does not belong to that user.
@@ -88,7 +89,9 @@ def download_zip(user_name, reop, token="", limit_size=100):
     if max_size > 0:
         curl_cmd.extend(["--max-filesize", str(max_size)])
     if token:
-        url = "https://api.github.com/repos/{}/zipball/{}".format(full_name, ref)
+        url = "https://api.github.com/repos/{}/zipball".format(full_name)
+        if ref:
+            url += "/{}".format(ref)
         curl_cmd.extend(
             [
                 "-H",
@@ -101,7 +104,12 @@ def download_zip(user_name, reop, token="", limit_size=100):
             ]
         )
     else:
-        url = "https://github.com/{}/archive/refs/heads/{}.zip".format(full_name, ref)
+        # The web listing does not know the default branch; GitHub resolves
+        # HEAD to it.
+        if ref:
+            url = "https://github.com/{}/archive/refs/heads/{}.zip".format(full_name, ref)
+        else:
+            url = "https://github.com/{}/archive/HEAD.zip".format(full_name)
         curl_cmd.extend(["-o", file_name, url])
     print("Download {} : {}".format(reop["name"], url))
     subprocess.run(curl_cmd, check=False)
@@ -117,7 +125,20 @@ def download_zip(user_name, reop, token="", limit_size=100):
 def main(argv=None):
     args = parser.parse_args(argv)
     token = (args.token or "").strip() or (os.environ.get("GITHUB_TOKEN") or "").strip()
-    repos = search_user_repos(args.username, token)
+    try:
+        repos = search_user_repos(args.username, token)
+    except GitHubAPIError as exc:
+        print(
+            "error: cannot list repositories for {}: {}".format(args.username, exc),
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+    if not repos:
+        print(
+            "No public repositories found for {}.".format(args.username),
+            file=sys.stderr,
+        )
+        return
     for repo in repos:
         if args.print:
             print(repo["clone_url"])

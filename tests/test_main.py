@@ -1,4 +1,6 @@
+import contextlib
 import importlib
+import io
 import os
 import sys
 import unittest
@@ -98,6 +100,76 @@ class CloneTests(unittest.TestCase):
         self.assertIn("username=x-access-token", result.stdout)
         self.assertIn("password=ghp_secret", result.stdout)
         self.assertNotIn("DUMP_GITHUB_TOKEN", result.stdout)
+
+
+class CliBehaviourTests(unittest.TestCase):
+    def setUp(self):
+        self.calls = []
+
+    def fake_run(self, cmd, **kwargs):
+        self.calls.append((cmd, kwargs))
+        return mock.Mock(returncode=0)
+
+    def test_zip_without_token_uses_head_when_branch_unknown(self):
+        repo = {"name": "repo", "full_name": "alice/repo"}
+        with mock.patch.object(main.subprocess, "run", self.fake_run):
+            main.download_zip("alice", repo, limit_size=0)
+
+        cmd = self.calls[0][0]
+        self.assertEqual(
+            cmd[-1], "https://github.com/alice/repo/archive/HEAD.zip"
+        )
+
+    def test_zip_with_token_and_known_branch_uses_zipball_ref(self):
+        repo = {
+            "name": "repo",
+            "full_name": "alice/repo",
+            "default_branch": "main",
+        }
+        with mock.patch.object(main.subprocess, "run", self.fake_run):
+            main.download_zip("alice", repo, token="ghp_test", limit_size=0)
+
+        cmd = self.calls[0][0]
+        self.assertIn(
+            "https://api.github.com/repos/alice/repo/zipball/main", cmd
+        )
+        self.assertIn("Authorization: Bearer ghp_test", cmd)
+
+    def test_zip_with_token_and_unknown_branch_omits_ref(self):
+        repo = {"name": "repo", "full_name": "alice/repo"}
+        with mock.patch.object(main.subprocess, "run", self.fake_run):
+            main.download_zip("alice", repo, token="ghp_test", limit_size=0)
+
+        cmd = self.calls[0][0]
+        self.assertIn("https://api.github.com/repos/alice/repo/zipball", cmd)
+        self.assertFalse(
+            any("/zipball/" in part for part in cmd)
+        )
+
+    def test_listing_error_exits_nonzero_with_message(self):
+        err = io.StringIO()
+        with mock.patch.object(
+            main,
+            "search_user_repos",
+            side_effect=main.GitHubAPIError(
+                403, "API rate limit exceeded (HTTP 403)"
+            ),
+        ):
+            with self.assertRaises(SystemExit) as caught:
+                with contextlib.redirect_stderr(err):
+                    main.main(["alice"])
+
+        self.assertEqual(caught.exception.code, 1)
+        self.assertIn("alice", err.getvalue())
+        self.assertIn("rate limit", err.getvalue())
+
+    def test_empty_listing_reports_message(self):
+        err = io.StringIO()
+        with mock.patch.object(main, "search_user_repos", return_value=[]):
+            with contextlib.redirect_stderr(err):
+                main.main(["alice"])
+
+        self.assertIn("No public repositories found", err.getvalue())
 
 
 if __name__ == "__main__":

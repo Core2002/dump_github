@@ -5,6 +5,26 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.1] - 2026-11-12
+
+### Fixed
+
+- Non-token mode silently returned no repositories when the anonymous GitHub API
+  hit its 60 requests/hour/IP rate limit (common on shared/NAT/CI networks).
+  Listing now falls back to the public GitHub web repository pages
+  (`github.com/{user}?tab=repositories`, `github.com/orgs/{org}/repositories`)
+  and prints a warning, so public backups work again.
+- GitHub API failures are no longer swallowed: the CLI reports the error and
+  exits with status 1 instead of exiting 0 with no output.
+- Zip downloads no longer assume `main` when the default branch is unknown
+  (web fallback); the `HEAD` archive is used, and token mode omits the ref so
+  GitHub resolves the default branch.
+
+### Tests
+
+- 27 tests, including the API rate-limit fallback, pagination, organisation
+  detection via the web listing, and the `HEAD` archive path.
+
 ## [0.2.0] - 2026-11-12
 
 ### Added

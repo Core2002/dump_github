@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import unittest
@@ -12,6 +13,7 @@ class FakeResponse:
     def __init__(self, status_code, payload):
         self.status_code = status_code
         self._payload = payload
+        self.text = payload if isinstance(payload, str) else json.dumps(payload)
 
     def json(self):
         return self._payload
@@ -24,6 +26,37 @@ def make_repo(owner, name):
         "owner": {"login": owner},
         "clone_url": "https://github.com/{}/{}.git".format(owner, name),
     }
+
+
+def url_matches(url, prefix):
+    return (
+        url == prefix
+        or url.startswith(prefix + "?")
+        or url.startswith(prefix + "/")
+    )
+
+
+def user_repos_html(names, next_page=False):
+    body = "".join(
+        '<a href="/alice/{}" itemprop="name codeRepository" >{}</a>'.format(
+            name, name
+        )
+        for name in names
+    )
+    if next_page:
+        body += '<a rel="next" href="/alice?tab=repositories&amp;page=2">Next</a>'
+    return body
+
+
+def org_repos_html(org, names, next_page=False):
+    body = "".join(
+        '<a href="/{}/{}">{}</a>'.format(org, name, name) for name in names
+    )
+    if next_page:
+        body += '<a rel="next" href="/orgs/{}/repositories?page=2">Next</a>'.format(
+            org
+        )
+    return body
 
 
 class ListingTests(unittest.TestCase):
@@ -288,6 +321,133 @@ class ListingTests(unittest.TestCase):
             repos = lib.search_user_repos("alice", token="ghp_test")
 
         self.assertEqual([repo["name"] for repo in repos], ["public-repo"])
+
+
+class WebFallbackTests(unittest.TestCase):
+    def setUp(self):
+        self.calls = []
+
+    def fake_get(self, web):
+        def get(url, headers=None, timeout=None):
+            self.calls.append((url, headers or {}))
+            if url.startswith("https://api.github.com"):
+                return FakeResponse(403, {"message": "API rate limit exceeded"})
+            return web(url)
+
+        return get
+
+    def urls(self):
+        return [url for url, _ in self.calls]
+
+    def test_api_403_falls_back_to_web_listing_for_user(self):
+        def web(url):
+            if url.startswith("https://github.com/alice?tab=repositories"):
+                return FakeResponse(200, user_repos_html(["one", "two"]))
+            return FakeResponse(404, {"message": "Not Found"})
+
+        with mock.patch.object(lib.requests, "get", self.fake_get(web)):
+            with self.assertWarns(RuntimeWarning) as caught:
+                repos = lib.search_user_repos("alice")
+
+        self.assertEqual([repo["name"] for repo in repos], ["one", "two"])
+        self.assertIn("rate limit", str(caught.warning))
+        self.assertIn(
+            "https://github.com/alice?tab=repositories&page=1", self.urls()
+        )
+        self.assertTrue(
+            all("Authorization" not in headers for _, headers in self.calls)
+        )
+        self.assertEqual(
+            repos[0]["clone_url"], "https://github.com/alice/one.git"
+        )
+        self.assertNotIn("default_branch", repos[0])
+
+    def test_web_fallback_paginates_until_no_next_link(self):
+        first_page = ["repo-{}".format(i) for i in range(30)]
+        second_page = ["last-a", "last-b"]
+
+        def web(url):
+            if "page=1" in url:
+                return FakeResponse(200, user_repos_html(first_page, next_page=True))
+            if "page=2" in url:
+                return FakeResponse(200, user_repos_html(second_page))
+            return FakeResponse(404, {"message": "Not Found"})
+
+        with mock.patch.object(lib.requests, "get", self.fake_get(web)):
+            with self.assertWarns(RuntimeWarning):
+                repos = lib.search_user_repos("alice")
+
+        self.assertEqual(len(repos), 32)
+        self.assertEqual(repos[-1]["name"], "last-b")
+        self.assertFalse(any("page=3" in url for url in self.urls()))
+
+    def test_web_fallback_detects_organisation(self):
+        def web(url):
+            if url.startswith("https://github.com/acme-org?tab=repositories"):
+                return FakeResponse(200, "<html>organisation profile</html>")
+            if url.startswith("https://github.com/orgs/acme-org/repositories"):
+                return FakeResponse(200, org_repos_html("acme-org", ["org-a", "org-b"]))
+            return FakeResponse(404, {"message": "Not Found"})
+
+        with mock.patch.object(lib.requests, "get", self.fake_get(web)):
+            with self.assertWarns(RuntimeWarning):
+                repos = lib.search_user_repos("acme-org")
+
+        self.assertEqual([repo["name"] for repo in repos], ["org-a", "org-b"])
+        self.assertIn(
+            "https://github.com/orgs/acme-org/repositories?page=1", self.urls()
+        )
+        self.assertEqual(
+            repos[0]["full_name"], "acme-org/org-a"
+        )
+
+    def test_web_fallback_returns_empty_for_missing_account(self):
+        def web(url):
+            if url.startswith("https://github.com/nobody?tab=repositories"):
+                return FakeResponse(200, "<html></html>")
+            return FakeResponse(404, {"message": "Not Found"})
+
+        with mock.patch.object(lib.requests, "get", self.fake_get(web)):
+            with self.assertWarns(RuntimeWarning):
+                repos = lib.search_user_repos("nobody")
+
+        self.assertEqual(repos, [])
+
+    def test_token_mode_403_raises_and_does_not_scrape(self):
+        def fake_get(url, headers=None, timeout=None):
+            self.calls.append((url, headers or {}))
+            if url == "https://api.github.com/user":
+                return FakeResponse(200, {"login": "bob"})
+            if url == "https://api.github.com/users/alice":
+                return FakeResponse(200, {"login": "alice", "type": "User"})
+            if url.startswith("https://api.github.com/users/alice/repos"):
+                return FakeResponse(403, {"message": "API rate limit exceeded"})
+            return FakeResponse(200, user_repos_html(["should-not-be-used"]))
+
+        with mock.patch.object(lib.requests, "get", fake_get):
+            with self.assertRaises(lib.GitHubAPIError) as caught:
+                lib.search_user_repos("alice", token="ghp_test")
+
+        self.assertEqual(caught.exception.status_code, 403)
+        self.assertFalse(
+            any(url.startswith("https://github.com/") for url in self.urls())
+        )
+
+    def test_api_404_is_reported_instead_of_scraping(self):
+        def fake_get(url, headers=None, timeout=None):
+            self.calls.append((url, headers or {}))
+            if url.startswith("https://api.github.com"):
+                return FakeResponse(404, {"message": "Not Found"})
+            return FakeResponse(200, user_repos_html(["should-not-be-used"]))
+
+        with mock.patch.object(lib.requests, "get", fake_get):
+            with self.assertRaises(lib.GitHubAPIError) as caught:
+                lib.search_user_repos("ghost")
+
+        self.assertEqual(caught.exception.status_code, 404)
+        self.assertFalse(
+            any(url.startswith("https://github.com/") for url in self.urls())
+        )
 
 
 if __name__ == "__main__":

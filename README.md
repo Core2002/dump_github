@@ -49,6 +49,15 @@ GitHub’s API requires a proper `Authorization: Bearer <token>` header. This to
 - **Private repositories**: Without a token, only public repos are listed and can be cloned or archived. With a token that has the right scopes, you can include private repos you are allowed to access (for example when backing up your own account).
 - **Rate limits**: Authenticated API requests get a much higher limit than anonymous requests.
 
+**Without a token**
+
+Only public repositories can be listed and downloaded. The anonymous GitHub API allows
+60 requests per hour per IP, which shared/NATed networks and CI runners exhaust quickly;
+if `api.github.com` is rate-limited or otherwise unavailable, the tool automatically
+falls back to the public GitHub web listing
+(`github.com/{user}?tab=repositories` / `github.com/orgs/{org}/repositories`), prints a
+warning and keeps going. Private repositories still require a token.
+
 **How the token is used**
 
 - **Listing repos**: sent as `Bearer` on the REST API and scoped strictly to the requested account:
@@ -65,8 +74,11 @@ Create a token under GitHub → **Settings** → **Developer settings** → **Pe
 **Examples**
 
 ```bash
-# Public repos only (no token)
+# Public repos only (no token; falls back to the web listing if the API is rate-limited)
 dump-github Core2002 -p
+
+# Public backup without any credentials
+dump-github Core2002 -d
 
 # Token on the command line (private + higher API limits)
 dump-github username --token ghp_xxxxxxxxxxxx
